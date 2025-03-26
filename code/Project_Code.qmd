@@ -56,6 +56,10 @@ This model will provide initial insights into which factors are statistically si
 
 
 ```{r}
+install.packages("ggcorrplot")
+install.packages("ggmosaic")
+install.packages("vcd")
+install.packages("reshape2")
 
 library(tidyverse)
 library(reshape2)    # melt()

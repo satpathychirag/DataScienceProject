@@ -1,0 +1,212 @@
+---
+title: "Project Proposal"
+author: "Sebastian Levy"
+format: html
+---
+
+## Data Description
+
+### Source:
+The dataset is sourced from the UCI Machine Learning Repository. This repository provides real hospital records from 130 US hospitals collected between 1999 and 2008. Because the data comes directly from clinical records, it is not synthetic and reflects actual patient outcomes.
+
+### Dataset Details:
+
+\- **Content:** Patient demographics, clinical procedures, laboratory test counts, medication usage, diagnoses, and hospital readmission information.
+
+\- **Purpose:** Originally intended for analyzing factors associated with readmission among diabetic patients.
+
+## Possible Research Questions
+Our analysis will focus on the following research questions:
+
+#### Proportion of Readmission by Age Group:
+How does a patient’s age group influence their readmission status?
+\- **x-variable:** Age group
+\- **y-variable:** Readmission status (<30, >30, NO)
+
+#### Number of Lab Procedures by Readmission Status:
+Does the number of lab procedures vary across different readmission outcomes?
+\- **x-variable:** Number of lab procedures
+\- **y-variable:** Readmission status
+
+#### Correlation Heatmap of Numeric Features
+Which clinical and operational metrics are strongly interrelated, potentially affecting readmission?
+\- **x-variable:** Numeric clinical variables (e.g., time in hospital, num_lab_procedures, num_medications, etc.)
+
+#### Race vs. Readmission Status:
+Is there an association between patient race and readmission outcomes?
+\- **x-variable:** Race
+\- **y-variable:** Readmission status
+
+
+## Preliminary Model
+For the initial analysis, we propose a logistic regression model with:
+
+#### Dependent Variable (y):
+readmitted – A binary indicator where (for example) “YES” indicates a readmission within 30 days and “NO” indicates no such event.
+
+#### Independent Variables (x):
+Key predictors include:
+
+\- **Demographics:** age, gender
+
+\- **Clinical Measures:** time_in_hospital, num_lab_procedures, num_medications
+(Additional features such as number of procedures, diagnoses codes, etc., can be explored in extended models.)
+
+This model will provide initial insights into which factors are statistically significant predictors of readmission risk.
+
+
+```{r}
+
+library(tidyverse)
+library(reshape2)    # melt()
+library(ggplot2)
+library(ggcorrplot)  # correlation plots
+library(vcd)   # mosaic plots
+library(ggmosaic)
+
+# load dataset
+data <- read.csv("diabetic_data.csv", header = TRUE)
+
+# convert 'readmitted' to a factor variable (assuming values like "YES" and "NO")
+data$readmitted <- as.factor(data$readmitted)
+
+# preview the data structure
+str(data)
+
+# model the probability of readmission using selected predictors:
+model <- glm(readmitted ~ age + gender + time_in_hospital + num_lab_procedures + num_medications,
+             data = data, family = binomial)
+
+# display summary of the model
+summary(model)
+
+
+# RQ1
+ggplot(data, aes(x = factor(age), fill = readmitted)) +
+  geom_bar(position = "fill") +
+  labs(title = "Proportion of Readmission by Age Group",
+       x = "Age Group",
+       y = "Proportion") +
+  theme_minimal()
+
+# binary indicator: 1 if readmitted (<30 or >30), 0 if "NO"
+data <- data %>%
+  mutate(readmit = if_else(readmitted != "NO", 1, 0))
+
+age_rate <- data %>%
+  group_by(age) %>%
+  summarize(readmission_rate = mean(readmit)) %>%
+  ungroup()
+
+ggplot(age_rate, aes(x = age, y = readmission_rate)) +
+  geom_point(size = 3, color = "steelblue") +
+  geom_line(aes(group = 1), color = "steelblue") +
+  labs(title = "Readmission Rate by Age Group",
+       x = "Age Group",
+       y = "Readmission Rate") +
+  theme_minimal()
+
+# RQ2
+lab_rate <- data %>%
+  group_by(num_lab_procedures) %>%
+  summarize(readmission_rate = mean(readmit)) %>%
+  ungroup()
+
+# Scatter plot with connecting line
+ggplot(lab_rate, aes(x = num_lab_procedures, y = readmission_rate)) +
+  geom_point(size = 3, color = "purple") +
+  geom_line(aes(group = 1), color = "purple") +
+  labs(title = "Readmission Rate by Number of Lab Procedures",
+       x = "Number of Lab Procedures",
+       y = "Readmission Rate") +
+  theme_minimal()
+
+# new attempt
+data <- data %>%
+  mutate(readmit_binary = if_else(readmitted == "NO", 0, 1))
+model <- glm(readmit_binary ~ num_lab_procedures + age + time_in_hospital,
+             data = data, family = binomial)
+data$pred_prob <- predict(model, newdata = data, type = "response")
+ggplot(data, aes(x = readmitted, y = pred_prob)) +
+  geom_boxplot() +
+  labs(
+    title = "Predicted Probability of Readmission by Actual Readmission Status",
+    x = "Readmission Status (<30, >30, NO)",
+    y = "Predicted Probability of Readmission"
+  ) +
+  theme_minimal()
+
+
+#RQ3
+df_num <- data %>% 
+  select_if(is.numeric)
+
+corr_matrix <- cor(df_num, use = "pairwise.complete.obs")
+
+ggcorrplot(
+  corr_matrix,
+  method = "circle",          # or "square", "ellipse", etc.
+  hc.order = TRUE,            # reorder variables by hierarchical clustering
+  type = "lower",             # show only lower triangle
+  lab = TRUE,                 # show correlation coefficients
+  lab_size = 2,
+  outline.col = "white",
+  ggtheme = theme_minimal(),  # clean-looking theme
+  colors = c("#6D9EC1", "white", "#E46726"), # customize color scale
+  title = "Correlation Heatmap of Numeric Features"
+) +
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+# RQ4
+data$race <- as.factor(data$race)
+data$readmitted <- as.factor(data$readmitted)
+
+ggplot(data) +
+  geom_mosaic(aes(x = product(race, readmitted),
+                  fill = readmitted), 
+              weight = 1) +  # use 'weight = 1' so each row is counted equally
+  labs(title = "Mosaic Plot: Race vs. Readmission Status",
+       x = "Race",
+       y = "Proportion") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+race_rate <- data %>%
+  group_by(race) %>%
+  summarize(readmission_rate = mean(readmit)) %>%
+  ungroup()
+
+ggplot(race_rate, aes(x = race, y = readmission_rate)) +
+  geom_col(fill = "tomato") +
+  labs(title = "Readmission Rate by Race",
+       x = "Race",
+       y = "Readmission Rate") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+# Results Summary:
+
+#### Proportion of Readmission by Age Group:
+The stacked bar chart shows how the share of each readmission category (<30, >30, NO) varies by age bracket. It indicates that younger patients may have a slightly different readmission pattern than older patients. 
+The line chart shows how the proportion of patients who were readmitted (<30 or >30 days) varies by age bracket. The rate appears relatively low in the youngest bracket, rises sharply through early adulthood, and fluctuates at higher levels in the older age groups.
+
+#### Number of Lab Procedures by Readmission Status:
+The scatter plot with a connecting line illustrates how readmission rate changes as the number of lab procedures increases. It remains fairly steady at moderate procedure counts but shows sharp swings at very high counts.
+The boxplot compares lab procedure counts for each readmission category. The medians are similar across groups, suggesting that lab procedure volume alone may not strongly distinguish readmission outcomes. 
+
+#### Correlation Heatmap of Numeric Features:
+The heatmap displays how numeric variables (e.g., time in hospital, number of diagnoses) correlate with each other. It highlights which features may be redundant or especially relevant for modeling.
+
+#### Mosaic Plot: Race vs. Readmission Status:
+The mosaic plot visualizes how readmission status (<30, >30, NO) breaks down by race, with tile sizes reflecting sample sizes. It underscores potential differences in readmission patterns across racial groups. The bar chart compares readmission rates across different racial groups. Certain races (e.g., AfricanAmerican, Caucasian) show higher readmission rates, while others (e.g., Asian, “?”) appear lower.
+
+#### Logistic Regression Model Summary:
+The model indicates that age, time in hospital, and number of medications significantly predict readmission, while gender and lab procedures do not. Overall fit metrics (e.g., AIC, deviance) show moderate improvement over a null model.
+
+

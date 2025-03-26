@@ -1,15 +1,11 @@
 ---
-title: "Homework 6: Air Quality and Weather Analysis"
-author: "Chirag Satpathy"
-date: "`02/25/2025"
+title: "Project Proposal"
+author: "Team 1"
+date: "`03/26/2025"
 output: pdf
 ---
 
-## Assignment Overview
-
-The City of New York is concerned about the impact of weather on air quality. Your task is to analyze the provided datasets and generate insights and recommendations to help the city allocate resources effectively.
-
-You will work with **(find the two datafiles on Canvas)**:
+## Project Description
 
 \- **Air Quality Data:** Daily PM2.5 levels from sensors across New York, 2010-2018.
 
@@ -17,7 +13,7 @@ You will work with **(find the two datafiles on Canvas)**:
 
 This assignment will help you practice skills in **tidyverse, data wrangling, visualization, iteration, and functions**.
 
-## Instructions
+## Research Question
 
 ### 1. Data Loading & Exploration
 
